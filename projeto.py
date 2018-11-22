@@ -6,30 +6,17 @@ import copy
 days = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"]
 validDays = [day for day in days if not day in ["domingo","sábado"]]
 # variables
-def time_all_class_methods(Cls):
-    class NewCls(object):
-        def __init__(self,*args,**kwargs):
-            self.oInstance = Cls(*args,**kwargs)
-        def __getattribute__(self,s):
-            """
-            this is called whenever any attribute of a NewCls object is accessed. This function first tries to
-            get the attribute off NewCls. If it fails then it tries to fetch the attribute from self.oInstance (an
-            instance of the decorated class). If it manages to fetch the attribute from self.oInstance, and
-            the attribute is an instance method then `time_this` is applied.
-            """
-            try:
-                x = super(NewCls,self).__getattribute__(s)
-            except AttributeError:
-                pass
-            else:
-                return x
-            x = self.oInstance.__getattribute__(s)
-            if type(x) == type(self.__init__): # it is an instance method
-                print(copy.deepcopy(x))                 # this is equivalent of just decorating the method with time_this
-            else:
-                return x
-    return NewCls
+
 # classes
+#decorator
+def saveState(func):
+    def func_wrapper(self):
+        self.stateHistory.push({"reference":self,"savedState":copy.deepcopy(self)})
+        res = func(self)
+        return res
+    return func_wrapper
+
+#decorator
 class calendar:
     def __init__(self,weekday="domingo",timeRange = 60):
         self.day = 1
@@ -77,11 +64,29 @@ class payroll:
         self.lastId = 0
         self.stateHistory = stateHistory()
         self.calendar = calendar()
-
+    @saveState
     def pay(self):
-        for employee in self.employees:
-            if(employee.payday[0]==self.calendar.day):
-                employee.pay()
+        paid = 0
+        for emplo in self.employees:
+            if(emplo.payday[0]==self.calendar.day):
+                paid+=1
+                emplo.pay()
+        return {"paid":paid}
+
+    @saveState
+    def add(self,name,address,kind,sallary,comissioned,comissionShare):
+        id = self.lastId+1
+        self.lastId+=1
+        newEmployee = employee(name,address,sallary,kind,self.calendar,self.stateHistory)
+        return({"Added":newEmployee})
+
+    @saveState
+    def remove(self,id):
+        for emplo in self.employees:
+            if(emplo.id == id):
+                self.employees.remove(emplo)
+                break
+        return({"Removed":emplo})
 
 class stateHistory:
     def __init__(self):
@@ -93,43 +98,63 @@ class stateHistory:
         return popped
     def push(self,comm):
         self.stack.append(comm)
-@time_all_class_methods
+
 class employee:
-    def __init__(self,name="",address="",id=0,sallary=0,kind="monthly",comissioned = False,comissionShare=0.2,syndicated=False,serviceTax=0,calendar=None):
+    def __init__(self,name="",address="",id=0,sallary=0,kind="monthly",calendar=None,stateHistory = None,rate = 1,comissionRate = 0.2):
         self.name = name
         self.address = address
         self.id = id
-        self.sallary = sallary
-        self.comission = 0
-        self.comissionShare = comissionShare
+        self.baseSallary = sallary
         self.kind = kind
-        self.syndicated = syndicated
-        self.serviceTax = serviceTax
         self.payday = 0
         self.lastPay = -1
         self.calendar = calendar
+        self.stateHistory = stateHistory
+        self.syndicate = False
+        self.tax = 0
         if(kind=="monthly"):
+            self.rate = rate
             self.payday = [self.calendar.lastWorkDay()]
+            self.sallary = self.baseSallary*self.rate
         elif(kind=="comissioned"):
+            self.rate = 0.5
             self.payday = [self.calendar.nextFriday(),self.calendar.nextFriday+14]
+            self.sallary = self.baseSallary*self.rate
+            self.comissionRate = comissionRate
         elif(kind=="hourly"):
+            self.rate = 20/8 #20 dias úteis divididos por 8 horas = fração do salário ganho por hora
             self.payday = [day for day in self.calendar.currMonthWorkdays() if days[day%7] == "sexta"]
+            self.sallary = 0
 
-    def update(self,sallary,kind,comissioned,payday,syndicated):
+    def makeSyndicate(self,syndicate,tax = 0.1):
+        self.syndicate = syndicate
+        self.tax = tax
+        syndicate.add(self)
+
+    @saveState
+    def update(self,sallary,kind,comissioned,payday,syndicate):
         self.sallary = sallary
         self.kind = kind
         self.comissioned = comissioned
         self.payday = payday
-        self.syndicated = syndicated
+        self.syndicate = syndicate
+        return {"sallary":sallary,"kind":kind,"comissioned":comissioned,"payday":payday,"syndicated":syndicated}
+    @saveState
+    def punchOut(self,hours):
+        if(hours>8):
+            self.sallary+=8*(self.baseSallary*self.rate)
+            self.sallary+=(hours-8)*(self.baseSallary*(1.5*self.rate))
+    def saveSale(self,)
+    @saveState
     def pay(self):
         self.lastPay = self.calendar.currDay()
         if(self.syndicated):
-            self.sallary-=self.serviceTax
+            self.sallary-=self.tax
 
         if(self.kind=="monthly"):
             self.payday = []
-            dev =  "pagos {} reais no dia {} do mês {}".format(self.sallary,self.lastPay,self.calendar.month)
-            self.sallary = 0
+            dev = {"paid":self.sallary,"day":self.lastPay,"month":self.calendar.month}
+            self.sallary = self.baseSallary*self.rate
             return dev
 
         elif(self.kind=="comissioned"):
@@ -139,7 +164,8 @@ class employee:
             else:
                 self.lastPay = self.payday[0]
                 self.payday = []
-            dev =  "pagos {} reais no dia {} do mês {}".format(self.sallary/2,self.lastPay,self.calendar.month)
+            dev = {"paid":self.sallary,"day":self.lastPay,"month":self.calendar.month}
+            self.sallary = self.baseSallary*self.rate
             return dev
 
         elif(self.kind == "hourly"):
@@ -149,7 +175,7 @@ class employee:
             else:
                 self.lastPay = self.payday[0]
                 self.payday = []
-            dev =  "pagos {} reais no dia {} do mês {}".format(self.sallary,self.lastPay,self.calendar.month)
+            dev = {"paid":self.sallary,"day":self.lastPay,"month":self.calendar.month}
             self.sallary = 0
             return dev
 # classes
