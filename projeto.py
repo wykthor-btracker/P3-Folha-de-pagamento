@@ -1,3 +1,4 @@
+# -*-encoding:utf-8-*-
 #imports
 import copy
 # imports
@@ -9,14 +10,14 @@ validDays = [day for day in days if not day in ["domingo","sábado"]]
 
 # classes
 #decorator
-def saveState(func):
-    def func_wrapper(self):
-        self.stateHistory.push({"reference":self,"savedState":copy.deepcopy(self)})
-        res = func(self)
+def undo(func):
+    def func_wrapper(*args,**kwargs):    
+        args[0].stateHistory.push({"reference":args[0],"savedState":copy.deepcopy(args[0])})
+        res = func(*args,**kwargs)
         return res
     return func_wrapper
-
 #decorator
+
 class calendar:
     def __init__(self,weekday="domingo",timeRange = 60):
         self.day = 1
@@ -42,7 +43,7 @@ class calendar:
     def isWorkDay(self):
         return days[self.currWeekDay()] in validDays
 
-    def nextDay(self):
+    def nextSDay(self):
         if(self.day==31):
             self.day=1
             self.month+=1
@@ -52,7 +53,7 @@ class calendar:
     def lastWorkDay(self):
         return self.currMonthWorkdays()[-1]
 
-    def nextFriday(self):
+    def nextSFriday(self):
         currDay = self.day
         while(days[currDay%7]!="sexta"):
             currDay+=1
@@ -64,7 +65,10 @@ class payroll:
         self.lastId = 0
         self.stateHistory = stateHistory()
         self.calendar = calendar()
-    @saveState
+        if(self.employees):
+            for empl in self.employees:
+                empl.stateHistory = self.stateHistory
+    @undo
     def pay(self):
         paid = 0
         for emplo in self.employees:
@@ -73,14 +77,14 @@ class payroll:
                 emplo.pay()
         return {"paid":paid}
 
-    @saveState
-    def add(self,name,address,kind,sallary,comissioned,comissionShare):
+    @undo
+    def add(self,name,address,kind,sallary):
         id = self.lastId+1
         self.lastId+=1
         newEmployee = employee(name,address,sallary,kind,self.calendar,self.stateHistory)
         return({"Added":newEmployee})
 
-    @saveState
+    @undo
     def remove(self,id):
         for emplo in self.employees:
             if(emplo.id == id):
@@ -88,16 +92,47 @@ class payroll:
                 break
         return({"Removed":emplo})
 
+
+    def undo(self):
+        prev = self.stateHistory.pop()
+        self.stateHistory.pushFuture({"reference":prev["reference"],"savedState":copy.deepcopy(prev["reference"])})
+        if(prev["reference"] and isinstance(prev["savedState"],prev["reference"].__class__)):
+            prev["reference"].__dict__ = prev["savedState"].__dict__
+        prev["reference"].stateHistory = self.stateHistory
+
+    def redo(self):        
+        nextS = self.stateHistory.popFuture()
+        self.stateHistory.push({"reference":nextS["reference"],"savedState":copy.deepcopy(nextS["reference"])})
+        if(nextS["reference"] and isinstance(nextS["savedState"],nextS["reference"].__class__)):
+            nextS["reference"].__dict__ = nextS["savedState"].__dict__
+        nextS["reference"].stateHistory = self.stateHistory
+
 class stateHistory:
     def __init__(self):
-        self.stack = []
-        self.size = 0
+        self.past = []
+        self.future = []
+
     def pop(self):
-        popped = self.stack[-1]
-        self.stack = self.stack[:-1]
+        if(len(self.past)):
+            popped = self.past[-1]
+            self.past = self.past[:-1]
+        else:
+            popped = None
         return popped
+
+    def popFuture(self):
+        if(len(self.future)):
+            popped = self.future[-1]
+            self.future = self.future[:-1]
+        else:
+            popped = None
+        return popped
+
     def push(self,comm):
-        self.stack.append(comm)
+        self.past.append(comm)
+
+    def pushFuture(self,comm):
+        self.future.append(comm)
 
 class employee:
     def __init__(self,name="",address="",id=0,sallary=0,kind="monthly",calendar=None,stateHistory = None,rate = 1,comissionRate = 0.2):
@@ -118,7 +153,7 @@ class employee:
             self.sallary = self.baseSallary*self.rate
         elif(kind=="comissioned"):
             self.rate = 0.5
-            self.payday = [self.calendar.nextFriday(),self.calendar.nextFriday+14]
+            self.payday = [self.calendar.nextSFriday(),self.calendar.nextSFriday+14]
             self.sallary = self.baseSallary*self.rate
             self.comissionRate = comissionRate
         elif(kind=="hourly"):
@@ -131,24 +166,32 @@ class employee:
         self.tax = tax
         syndicate.add(self)
 
-    @saveState
+    @undo
     def update(self,sallary,kind,comissioned,payday,syndicate):
         self.sallary = sallary
         self.kind = kind
         self.comissioned = comissioned
         self.payday = payday
         self.syndicate = syndicate
-        return {"sallary":sallary,"kind":kind,"comissioned":comissioned,"payday":payday,"syndicated":syndicated}
-    @saveState
+        return {"sallary":sallary,"kind":kind,"comissioned":comissioned,"payday":payday,"syndicated":syndicate}
+
+    @undo
     def punchOut(self,hours):
         if(hours>8):
             self.sallary+=8*(self.baseSallary*self.rate)
             self.sallary+=(hours-8)*(self.baseSallary*(1.5*self.rate))
-    def saveSale(self,)
-    @saveState
+
+    @undo
+    def addSale(self,sale):
+        if(sale.keys() != ["valor","data"]):
+            return None
+        else:
+            self.sallary+=sale["valor"]*self.comissionRate
+            return sale
+    @undo
     def pay(self):
         self.lastPay = self.calendar.currDay()
-        if(self.syndicated):
+        if(self.syndicate):
             self.sallary-=self.tax
 
         if(self.kind=="monthly"):
