@@ -60,7 +60,7 @@ class calendar:
         return currDay
 
 class payroll:
-    def __init__(self,employees):
+    def __init__(self,employees=list()):
         self.employees = employees
         self.lastId = 0
         self.stateHistory = stateHistory()
@@ -95,16 +95,18 @@ class payroll:
 
     def undo(self):
         prev = self.stateHistory.pop()
-        self.stateHistory.pushFuture({"reference":prev["reference"],"savedState":copy.deepcopy(prev["reference"])})
-        if(prev["reference"] and isinstance(prev["savedState"],prev["reference"].__class__)):
-            prev["reference"].__dict__ = prev["savedState"].__dict__
+        if(prev):
+            self.stateHistory.pushFuture({"reference":prev["reference"],"savedState":copy.deepcopy(prev["reference"])})
+            if(isinstance(prev["savedState"],prev["reference"].__class__)):
+                prev["reference"].__dict__ = prev["savedState"].__dict__
         prev["reference"].stateHistory = self.stateHistory
 
     def redo(self):        
         nextS = self.stateHistory.popFuture()
-        self.stateHistory.push({"reference":nextS["reference"],"savedState":copy.deepcopy(nextS["reference"])})
-        if(nextS["reference"] and isinstance(nextS["savedState"],nextS["reference"].__class__)):
-            nextS["reference"].__dict__ = nextS["savedState"].__dict__
+        if(nextS):
+            self.stateHistory.push({"reference":nextS["reference"],"savedState":copy.deepcopy(nextS["reference"])})
+            if(isinstance(nextS["savedState"],nextS["reference"].__class__)):
+                nextS["reference"].__dict__ = nextS["savedState"].__dict__
         nextS["reference"].stateHistory = self.stateHistory
 
 class stateHistory:
@@ -134,6 +136,54 @@ class stateHistory:
     def pushFuture(self,comm):
         self.future.append(comm)
 
+class syndicate:
+    def __init__(self,employees,tax):
+        self.employees = employees
+        self.ids = 0
+        for emplo in self.employees:
+            if(not emplo.sid):
+                emplo.sid = ids
+                self.ids+=1
+
+    def applyTax(self,id,tax):
+        employ = None
+        for emplo in employees:
+            if(emplo.sid == id):
+                employ = emplo
+                break
+        if(employ):
+            employ.tax += tax
+            return True
+        else:
+            return False
+    def add(self,employee):
+        employee.sid = self.ids
+        self.ids+=1
+        return True
+
+class payMethod:
+    def __init__(self,**mean):
+        if("method" in mean.keys()):
+            if(mean["method"] == "mail" or mean["method"]=="bank"):
+                if("address" in mean.keys()):
+                    self.method =  mean["method"]
+                    self.address = mean["address"]
+                else:
+                    return None
+            elif(mean["method"] == "check"):
+                self.method = "check"
+            else:
+                return None
+        else:
+            return None
+
+    def repr(self,value):
+        if(self.method == "bank" or self.method == "mail"):
+            return "Pagos R${}, enviados para {} .".format(value,self.address)
+        else:
+            return "Entregue um cheque com valor de R${} .".format(value)
+
+
 class employee:
     def __init__(self,name="",address="",id=0,sallary=0,kind="monthly",calendar=None,stateHistory = None,rate = 1,comissionRate = 0.2):
         self.name = name
@@ -142,10 +192,12 @@ class employee:
         self.baseSallary = sallary
         self.kind = kind
         self.payday = 0
+        self.method = payMethod(method="check")
         self.lastPay = -1
         self.calendar = calendar
         self.stateHistory = stateHistory
         self.syndicate = False
+        self.sid = None
         self.tax = 0
         if(kind=="monthly"):
             self.rate = rate
