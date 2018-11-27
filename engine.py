@@ -78,6 +78,15 @@ class payroll:
                 paid+=1
                 emplo.pay()
         return {"paid":paid}
+        
+    @undo
+    def payInterval(self,limit):
+        limit = int(limit)
+        first = self.calendar.currDay()
+        for i in range(first,limit):
+            for emplo in self.employees:
+                if(emplo.payday[0]==self.calendar.day):
+                    emplo.pay()
 
     @undo
     def add(self,name,address,kind,sallary):
@@ -256,7 +265,7 @@ class employee:
         else:
             self.sallary+=sale["valor"]*self.comissionRate
             return sale
-    @undo
+
     def pay(self):
         self.lastPay = self.calendar.currDay()
         if(self.syndicate):

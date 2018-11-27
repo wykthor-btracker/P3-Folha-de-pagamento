@@ -30,8 +30,7 @@ Bem vindo! O que deseja fazer hoje?(0-10)
 6.  Rodar a folha de pagamento para hoje
 7.  Desfazer
 8.  Refazer
-9.  Agenda de pagamento
-10. Criacao de nova agenda de pagamento
+9.  Rodar folhas de pagamento no intervalo
 E.  Sair
 '''
 #variables
@@ -157,7 +156,7 @@ def main():
 		elif(currCode == "8"):
 			payroll.redo()
 		elif(currCode == "9"):	
-			pass
+			intervalo = raw_input("Informe quantos dias devem ser contemplados pelo programa, ele rodará de hoje até o dia informado.")
 		raw_input("Aperte enter para continuar.")
 	return None
 #main
