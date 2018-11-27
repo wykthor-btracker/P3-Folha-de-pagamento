@@ -1,6 +1,7 @@
 # -*-encoding:utf-8-*-
 #imports
 import copy
+import pdb
 # imports
 
 #variables
@@ -68,6 +69,7 @@ class payroll:
         if(self.employees):
             for empl in self.employees:
                 empl.stateHistory = self.stateHistory
+                empl.calendar = self.calendar
     @undo
     def pay(self):
         paid = 0
@@ -81,17 +83,22 @@ class payroll:
     def add(self,name,address,kind,sallary):
         id = self.lastId+1
         self.lastId+=1
-        newEmployee = employee(name,address,sallary,kind,self.calendar,self.stateHistory)
+        newEmployee = employee(id = id,name = name,address = address,sallary = sallary,kind = kind,calendar = self.calendar,stateHistory = self.stateHistory)
+        self.employees.append(newEmployee)
         return({"Added":newEmployee})
 
     @undo
     def remove(self,id):
         for emplo in self.employees:
-            if(emplo.id == id):
+            if(emplo.id == int(id)):
                 self.employees.remove(emplo)
-                break
-        return({"Removed":emplo})
+                return({"Removed":emplo})
+        return(None)
 
+    def find(self,id):
+        for emplo in self.employees:
+            if(emplo.id == int(id)):
+                return emplo
 
     def undo(self):
         prev = self.stateHistory.pop()
@@ -144,10 +151,12 @@ class syndicate:
             if(not emplo.sid):
                 emplo.sid = ids
                 self.ids+=1
-
+    def wholeTax(self,tax):
+        for emplo in self.employees:
+            emplo.tax = tax
     def applyTax(self,id,tax):
         employ = None
-        for emplo in employees:
+        for emplo in self.employees:
             if(emplo.sid == id):
                 employ = emplo
                 break
@@ -219,16 +228,23 @@ class employee:
         syndicate.add(self)
 
     @undo
-    def update(self,sallary,kind,comissioned,payday,syndicate):
-        self.sallary = sallary
-        self.kind = kind
-        self.comissioned = comissioned
-        self.payday = payday
-        self.syndicate = syndicate
-        return {"sallary":sallary,"kind":kind,"comissioned":comissioned,"payday":payday,"syndicated":syndicate}
+    def update(self,sallary,kind,payday,syndicate):
+        if(sallary!=-1):
+            self.sallary = sallary
+        if(kind!=-1):
+            self.kind = kind
+        if(payday!=-1):
+            self.payday = payday
+        if(syndicate!=-1):
+            if(syndicate.lower()=="s"):
+                self.syndicate = True
+            else:
+                self.syndicate = False
+        return {"sallary":sallary,"kind":kind,"comissioned":comissioned,"payday":payday,"syndicated":self.syndicate}
 
     @undo
     def punchOut(self,hours):
+        hours = float(hours)
         if(hours>8):
             self.sallary+=8*(self.baseSallary*self.rate)
             self.sallary+=(hours-8)*(self.baseSallary*(1.5*self.rate))
