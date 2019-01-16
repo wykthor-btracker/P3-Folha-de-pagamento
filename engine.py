@@ -153,12 +153,12 @@ class stateHistory:
         self.future.append(comm)
 
 class syndicate:
-    def __init__(self,employees,tax):
+    def __init__(self,employees = []):
         self.employees = employees
         self.ids = 0
         for emplo in self.employees:
             if(not emplo.sid):
-                emplo.sid = ids
+                emplo.sid = self.ids
                 self.ids+=1
     def wholeTax(self,tax):
         for emplo in self.employees:
@@ -203,7 +203,7 @@ class payMethod:
 
 
 class employee:
-    def __init__(self,name="",address="",id=0,sallary=0,kind="monthly",calendar=None,stateHistory = None,rate = 1,comissionRate = 0.2):
+    def __init__(self,name="",address="",id=0,sallary=0,kind="mensal",calendar=None,stateHistory = None,rate = 1,comissionRate = 0.2):
         self.name = name
         self.address = address
         self.id = id
@@ -217,16 +217,16 @@ class employee:
         self.syndicate = False
         self.sid = None
         self.tax = 0
-        if(kind=="monthly"):
+        if(kind=="mensal"):
             self.rate = rate
             self.payday = [self.calendar.lastWorkDay()]
             self.sallary = self.baseSallary*self.rate
-        elif(kind=="comissioned"):
+        elif(kind=="comissao"):
             self.rate = 0.5
-            self.payday = [self.calendar.nextSFriday(),self.calendar.nextSFriday+14]
+            self.payday = [self.calendar.nextSFriday(),self.calendar.nextSFriday()+14]
             self.sallary = self.baseSallary*self.rate
             self.comissionRate = comissionRate
-        elif(kind=="hourly"):
+        elif(kind=="hora"):
             self.rate = 20/8 #20 dias úteis divididos por 8 horas = fração do salário ganho por hora
             self.payday = [day for day in self.calendar.currMonthWorkdays() if days[day%7] == "sexta"]
             self.sallary = 0
@@ -249,7 +249,7 @@ class employee:
                 self.syndicate = True
             else:
                 self.syndicate = False
-        return {"sallary":sallary,"kind":kind,"comissioned":comissioned,"payday":payday,"syndicated":self.syndicate}
+        return {"sallary":sallary,"kind":kind,"payday":payday,"syndicated":self.syndicate}
 
     @undo
     def punchOut(self,hours):
@@ -271,13 +271,13 @@ class employee:
         if(self.syndicate):
             self.sallary-=self.tax
 
-        if(self.kind=="monthly"):
+        if(self.kind=="mensal"):
             self.payday = []
             dev = {"paid":self.sallary,"day":self.lastPay,"month":self.calendar.month}
             self.sallary = self.baseSallary*self.rate
             return dev
 
-        elif(self.kind=="comissioned"):
+        elif(self.kind=="comissao"):
             if(len(self.payday)>1):
                 self.lastPay=self.payday[0]
                 self.payday = self.payday[1:]
@@ -288,7 +288,7 @@ class employee:
             self.sallary = self.baseSallary*self.rate
             return dev
 
-        elif(self.kind == "hourly"):
+        elif(self.kind == "hora"):
             if(len(self.payday)>1):
                 self.lastPay=self.payday[0]
                 self.payday = self.payday[1:]
