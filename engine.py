@@ -14,6 +14,7 @@ validDays = [day for day in days if not day in ["domingo","sábado"]]
 def undo(func):
     def func_wrapper(*args,**kwargs):    
         args[0].stateHistory.push({"reference":args[0],"savedState":copy.deepcopy(args[0])})
+        pdb.set_trace()
         res = func(*args,**kwargs)
         return res
     return func_wrapper

@@ -93,7 +93,7 @@ def main():
         print(mainMenu)
         currCode = input(Output)
         if(currCode == "0"):
-            new =  parseInput(input("Informe nome, endereco, tipo(mensal,comissao,hora), salario base separados por virgula: "),"empregado")
+            new =  parseInput(input("Informe nome, endereco, tipo(mensal,comissao,hora), salario base(O valor que seria recebido se o tipo do empregado cumprir com o tempo requerido dele.) separados por virgula: "),"empregado")
             if(new):
                 payroll.add(new[0],new[1],new[2],int(new[3]))
                 print("{} recebeu o id {}".format(payroll.employees[-1].name,payroll.employees[-1].id))
@@ -102,7 +102,7 @@ def main():
         elif(currCode == "1"):
             rem = parseInput(input("Informe o id do funcionário a ser removido: "),"id")
             if(rem):
-                payroll.remove(rem)
+                payroll.remove(*rem)
             else:
                 print("Entrada inválida, tente novamente.")
         elif(currCode == "2"):
@@ -142,7 +142,7 @@ def main():
                 emplo = payroll.find(rem[0])
                 if(emplo):
                     new = input("Nesta ordem, separados por vírgulas, informe os campos a serem atualizados, se for para manter o mesmo, ponha -1 no lugar:\nsalario,tipo,dia do pagamento,se faz parte do sindicato(s/n)")
-                    res = emplo.update(new.split(","))
+                    res = emplo.update(*new.split(","))
                     if(res["syndicated"]):
                         syndicate.add(emplo)
                 else:
