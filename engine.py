@@ -283,7 +283,7 @@ class employee:
             self.sallary-=self.tax
 
         EmployeeKind = chooseEmployeeType(self,VisitorPay)
-        EmployeeKind(self)
+        return EmployeeKind(self)
 
     def makeSyndicate(self,syndicate,tax = 0.1):
         self.syndicate = syndicate
