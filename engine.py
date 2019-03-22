@@ -14,7 +14,6 @@ validDays = [day for day in days if not day in ["domingo","sábado"]]
 def undo(func):
     def func_wrapper(*args,**kwargs):    
         args[0].stateHistory.push({"reference":args[0],"savedState":copy.deepcopy(args[0])})
-        pdb.set_trace()
         res = func(*args,**kwargs)
         return res
     return func_wrapper
@@ -202,6 +201,61 @@ class payMethod:
         else:
             return "Entregue um cheque com valor de R${} .".format(value)
 
+class VisitorDefSallary:
+    @staticmethod
+    def visitMensal(instance):
+        instance.payday = [instance.calendar.lastWorkDay()]
+        instance.sallary = instance.baseSallary * instance.rate
+
+    @staticmethod
+    def visitComissao(instance):
+        instance.rate = 0.5
+        instance.payday = [instance.calendar.nextSFriday(), instance.calendar.nextSFriday() + 14]
+
+    @staticmethod
+    def visitHora(instance):
+        instance.rate = 20 / 8  # 20 dias úteis divididos por 8 horas = fração do salário ganho por hora
+        instance.payday = [day for day in instance.calendar.currMonthWorkdays() if days[day % 7] == "sexta"]
+
+class VisitorPay:
+    @staticmethod
+    def visitMensal(instance):
+        instance.payday = []
+        dev = {"paid": instance.sallary, "day": instance.lastPay, "month": instance.calendar.month}
+        instance.sallary = instance.baseSallary * instance.rate
+        return dev
+
+    @staticmethod
+    def visitComissao(instance):
+        if (len(instance.payday) > 1):
+            instance.lastPay = instance.payday[0]
+            instance.payday = instance.payday[1:]
+        else:
+            instance.lastPay = instance.payday[0]
+            instance.payday = []
+        dev = {"paid": instance.sallary, "day": instance.lastPay, "month": instance.calendar.month}
+        instance.sallary = instance.baseSallary * instance.rate
+        return dev
+
+    @staticmethod
+    def visitHora(instance):
+        if (len(instance.payday) > 1):
+            instance.lastPay = instance.payday[0]
+            instance.payday = instance.payday[1:]
+        else:
+            instance.lastPay = instance.payday[0]
+            instance.payday = []
+        dev = {"paid": instance.sallary, "day": instance.lastPay, "month": instance.calendar.month}
+        instance.sallary = 0
+        return dev
+
+def chooseEmployeeType(employee,visitor):
+    if(employee.kind == "mensal"):
+        return visitor.visitMensal
+    elif(employee.kind == "comissao"):
+        return visitor.visitComissao
+    elif(employee.kind == "hora"):
+        return visitor.visitHora
 
 class employee:
     def __init__(self,name="",address="",id=0,sallary=0,kind="mensal",calendar=None,stateHistory = None,rate = 1,comissionRate = 0.2):
@@ -218,19 +272,18 @@ class employee:
         self.syndicate = False
         self.sid = None
         self.tax = 0
-        if(kind=="mensal"):
-            self.rate = rate
-            self.payday = [self.calendar.lastWorkDay()]
-            self.sallary = self.baseSallary*self.rate
-        elif(kind=="comissao"):
-            self.rate = 0.5
-            self.payday = [self.calendar.nextSFriday(),self.calendar.nextSFriday()+14]
-            self.sallary = self.baseSallary*self.rate
-            self.comissionRate = comissionRate
-        elif(kind=="hora"):
-            self.rate = 20/8 #20 dias úteis divididos por 8 horas = fração do salário ganho por hora
-            self.payday = [day for day in self.calendar.currMonthWorkdays() if days[day%7] == "sexta"]
-            self.sallary = 0
+        self.rate = rate
+        self.comissionRate = comissionRate
+        SalaryKind = chooseEmployeeType(self,VisitorDefSallary)
+        SalaryKind(self)
+
+    def pay(self):
+        self.lastPay = self.calendar.currDay()
+        if(self.syndicate):
+            self.sallary-=self.tax
+
+        EmployeeKind = chooseEmployeeType(self,VisitorPay)
+        EmployeeKind(self)
 
     def makeSyndicate(self,syndicate,tax = 0.1):
         self.syndicate = syndicate
@@ -267,38 +320,13 @@ class employee:
             self.sallary+=sale["valor"]*self.comissionRate
             return sale
 
-    def pay(self):
-        self.lastPay = self.calendar.currDay()
-        if(self.syndicate):
-            self.sallary-=self.tax
 
-        if(self.kind=="mensal"):
-            self.payday = []
-            dev = {"paid":self.sallary,"day":self.lastPay,"month":self.calendar.month}
-            self.sallary = self.baseSallary*self.rate
-            return dev
-
-        elif(self.kind=="comissao"):
-            if(len(self.payday)>1):
-                self.lastPay=self.payday[0]
-                self.payday = self.payday[1:]
-            else:
-                self.lastPay = self.payday[0]
-                self.payday = []
-            dev = {"paid":self.sallary,"day":self.lastPay,"month":self.calendar.month}
-            self.sallary = self.baseSallary*self.rate
-            return dev
-
-        elif(self.kind == "hora"):
-            if(len(self.payday)>1):
-                self.lastPay=self.payday[0]
-                self.payday = self.payday[1:]
-            else:
-                self.lastPay = self.payday[0]
-                self.payday = []
-            dev = {"paid":self.sallary,"day":self.lastPay,"month":self.calendar.month}
-            self.sallary = 0
-            return dev
+class Monthly():
+    pass
+class Weekly():
+    pass
+class Hourly():
+    pass
 # classes
 
 # functions
